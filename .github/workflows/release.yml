@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.x'
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Restore NuGet packages
+      run: dotnet restore RestClr.sln
+
+    - name: Build solution
+      run: msbuild RestClr.sln /p:Configuration=Release /p:Platform="Any CPU"
+
+    - name: Package release files
+      run: |
+        New-Item -ItemType Directory -Force -Path release
+        Copy-Item -Path "bin/Release/net48/RestClr.dll" -Destination "release/"
+        Copy-Item -Path "bin/Release/net48/RestSharp.dll" -Destination "release/"
+        Compress-Archive -Path "release/*" -DestinationPath "RestClr-${{ github.ref_name }}.zip"
+      shell: powershell
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          RestClr-${{ github.ref_name }}.zip
+          bin/Release/net48/RestClr.dll
+          bin/Release/net48/RestSharp.dll
+        body: |
+          ## RestClr Release ${{ github.ref_name }}
+
+          SQL Server CLR assembly for making REST API calls with mTLS client authentication.
+
+          ### Installation
+          1. Download `RestClr.dll` and `RestSharp.dll`
+          2. Follow the SQL Server CLR installation instructions in the README
+
+          ### What's Included
+          - `RestClr.dll` - Main CLR assembly
+          - `RestSharp.dll` - Required dependency
+          - `RestClr-${{ github.ref_name }}.zip` - All files in a single archive
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
