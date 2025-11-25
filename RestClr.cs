@@ -58,6 +58,62 @@ public class RestClr
         }
     }
 
+    /// <summary>
+    /// Tests if the current process can access the certificate's private key
+    /// </summary>
+    /// <param name="cert">Certificate to test</param>
+    /// <param name="errorMessage">Detailed error message if access fails</param>
+    /// <returns>True if private key is accessible, false otherwise</returns>
+    private static bool CanAccessPrivateKey(X509Certificate2 cert, out string errorMessage)
+    {
+        errorMessage = null;
+
+        if (!cert.HasPrivateKey)
+        {
+            errorMessage = "Certificate does not have a private key associated with it";
+            return false;
+        }
+
+        try
+        {
+            // Attempt to access the private key - this will throw if permissions are insufficient
+            var key = cert.PrivateKey;
+            if (key == null)
+            {
+                errorMessage = "Certificate reports having a private key, but it could not be retrieved (key is null)";
+                return false;
+            }
+
+            // Try to get the key's properties to ensure we have real access
+            var keySize = key.KeySize;
+            return true;
+        }
+        catch (System.Security.Cryptography.CryptographicException ex)
+        {
+            // Common errors:
+            // - "Keyset does not exist" = private key file not found or no read permission
+            // - "Access is denied" = insufficient permissions to access the private key
+            errorMessage = string.Format(
+                "Cannot access certificate private key: {0}\n\n" +
+                "SOLUTION:\n" +
+                "Grant SQL Server service account Read permission to the private key:\n" +
+                " - Run certlm.msc as Administrator\n" +
+                " - Find certificate in Personal\\Certificates\n" +
+                " - Right-click > All Tasks > Manage Private Keys\n" +
+                " - Add SQL Server service account (e.g., 'NT SERVICE\\MSSQLSERVER')\n" +
+                " - Grant Read permission\n" +
+                "Technical details: {0}",
+                ex.Message,
+                cert.Thumbprint);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = string.Format("Unexpected error accessing private key: {0}", ex.Message);
+            return false;
+        }
+    }
+
     #endregion
 
     #region HTTP Methods
@@ -215,15 +271,19 @@ public class RestClr
             if (cert == null)
             {
                 return new SqlString(string.Format(
-                    "ERROR: Certificate with thumbprint '{0}' not found in CurrentUser\\My or LocalMachine\\My stores",
+                    "ERROR: Certificate with thumbprint '{0}' not found in CurrentUser\\My or LocalMachine\\My stores.\n\n" +
+                    "Use dbo.ListCertificates() to see available certificates.",
                     certificateThumbprint.Value));
             }
 
-            if (!cert.HasPrivateKey)
+            // Check if we can actually access the private key (not just if it exists)
+            string privateKeyError;
+            if (!CanAccessPrivateKey(cert, out privateKeyError))
             {
                 return new SqlString(string.Format(
-                    "ERROR: Certificate with thumbprint '{0}' does not have a private key",
-                    certificateThumbprint.Value));
+                    "ERROR: Certificate with thumbprint '{0}' found, but private key is not accessible.\n\n{1}",
+                    certificateThumbprint.Value,
+                    privateKeyError));
             }
 
             // Configure RestClient with mTLS
