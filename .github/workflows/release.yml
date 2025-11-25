@@ -38,24 +38,22 @@ jobs:
       shell: powershell
 
     - name: Create Release
-      run: |
-        gh release create ${{ github.ref_name }} `
-          --title "RestClr Release ${{ github.ref_name }}" `
-          --notes "## RestClr Release ${{ github.ref_name }}
+      uses: ncipollo/release-action@v1
+      with:
+        artifacts: "RestClr-${{ github.ref_name }}.zip,bin/Release/net48/RestClr.dll,bin/Release/net48/RestSharp.dll"
+        body: |
+          ## RestClr Release ${{ github.ref_name }}
 
-        SQL Server CLR assembly for making REST API calls with mTLS client authentication.
+          SQL Server CLR assembly for making REST API calls with mTLS client authentication.
 
-        ### Installation
-        1. Download ``RestClr.dll`` and ``RestSharp.dll``
-        2. Follow the SQL Server CLR installation instructions in the README
+          ### Installation
+          1. Download `RestClr.dll` and `RestSharp.dll`
+          2. Follow the SQL Server CLR installation instructions in the README
 
-        ### What's Included
-        - ``RestClr.dll`` - Main CLR assembly
-        - ``RestSharp.dll`` - Required dependency
-        - ``RestClr-${{ github.ref_name }}.zip`` - All files in a single archive" `
-          RestClr-${{ github.ref_name }}.zip `
-          bin/Release/net48/RestClr.dll `
-          bin/Release/net48/RestSharp.dll
-      shell: powershell
-      env:
-        GH_TOKEN: ${{ github.token }}
+          ### What's Included
+          - `RestClr.dll` - Main CLR assembly
+          - `RestSharp.dll` - Required dependency
+          - `RestClr-${{ github.ref_name }}.zip` - All files in a single archive
+        draft: false
+        prerelease: false
+        token: ${{ secrets.GITHUB_TOKEN }}
