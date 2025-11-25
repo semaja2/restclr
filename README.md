@@ -238,13 +238,6 @@ $keyPath = $cert.PrivateKey.CspKeyContainerInfo.UniqueKeyContainerName
 # Use icacls to grant permissions
 ```
 
-### Network Connectivity
-Verify SQL Server can reach the API endpoint:
-```sql
--- Test basic connectivity
-EXEC xp_cmdshell 'ping api.example.com';
-```
-
 ## Uninstallation
 
 Run `Undeploy.sql` to remove all functions and assemblies:
@@ -258,6 +251,10 @@ sqlcmd -S localhost -E -i Undeploy.sql
 This code is provided as-is without warranty. Use at your own risk.
 
 ## Version History
+
+- **1.0.1** - Minor Update
+  - Added logic to check if private key exists and permissions granted
+  - Added verbose error if private key not accessible
 
 - **1.0.0** - Initial release
   - Support for HTTP GET, POST, PUT, DELETE, PATCH
